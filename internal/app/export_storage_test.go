@@ -38,6 +38,7 @@ func TestCreateExportTaskStoresTask(t *testing.T) {
 	a := NewApp()
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	for _, dir := range []string{a.exportTaskDir, a.exportCacheDir} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			t.Fatal(err)
@@ -112,6 +113,7 @@ func TestCreateExportTaskShouldStartExecution(t *testing.T) {
 	a := NewApp()
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportOutputDir = filepath.Join(tmp, "output")
 	for _, dir := range []string{a.exportTaskDir, a.exportCacheDir, a.exportOutputDir} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -147,6 +149,7 @@ func TestDeleteExportTaskRemovesCheckpointOnly(t *testing.T) {
 	a := NewApp()
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportOutputDir = filepath.Join(tmp, "output")
 	for _, dir := range []string{a.exportTaskDir, a.exportCacheDir, a.exportOutputDir} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -174,4 +177,24 @@ func TestDeleteExportTaskRemovesCheckpointOnly(t *testing.T) {
 	if _, err := os.Stat(checkpointPath); !os.IsNotExist(err) {
 		t.Fatalf("expected checkpoint to be removed, got %v", err)
 	}
+}
+
+// waitExportRunsIdle 等待后台导出 goroutine 收尾。
+// CreateExportTask 会异步启动 runExportTask 写任务文件，若测试在 goroutine 结束前返回，
+// t.TempDir 的 RemoveAll 会撞上 "directory not empty"（CI 上偶发失败）。
+func waitExportRunsIdle(t *testing.T, a *App) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		a.exportRunMu.Lock()
+		running := len(a.runningExportTask)
+		a.exportRunMu.Unlock()
+		if running == 0 {
+			// 让出一次调度，确保 goroutine 里最后的写文件操作落地
+			time.Sleep(20 * time.Millisecond)
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Log("warning: export runner still busy after 5s")
 }
