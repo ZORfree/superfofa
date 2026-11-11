@@ -669,6 +669,7 @@ export namespace model {
 	export class KeyConfig {
 	    mode: string;
 	    base_url: string;
+	    api_mode: string;
 	    proxy: string;
 	    active_id: string;
 	    single_id: string;
@@ -683,6 +684,7 @@ export namespace model {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.mode = source["mode"];
 	        this.base_url = source["base_url"];
+	        this.api_mode = source["api_mode"];
 	        this.proxy = source["proxy"];
 	        this.active_id = source["active_id"];
 	        this.single_id = source["single_id"];

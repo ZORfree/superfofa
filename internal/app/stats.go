@@ -57,6 +57,22 @@ func (a *App) StatsFofa(req model.StatsFofaReq) (model.StatsFofaResult, error) {
 	if err != nil {
 		return model.StatsFofaResult{}, fmt.Errorf("读取配置失败: %w", err)
 	}
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	if isMCPMode(cfg) {
+		a.statsMu.Lock()
+		wait := statsThrottleWaitDuration(a.lastStatsAt, time.Now())
+		if wait > 0 {
+			time.Sleep(wait)
+		}
+		a.lastStatsAt = time.Now()
+		a.statsMu.Unlock()
+		return a.statsFofaMCP(ctx, cfg, acc, query, fields, size)
+	}
+
 	opts := []fofa.Option{fofa.WithRetryCount(3)}
 	if strings.TrimSpace(cfg.BaseURL) != "" {
 		opts = append(opts, fofa.WithBaseURL(cfg.BaseURL))
@@ -65,11 +81,6 @@ func (a *App) StatsFofa(req model.StatsFofaReq) (model.StatsFofaResult, error) {
 		opts = append(opts, fofa.WithProxy(cfg.Proxy))
 	}
 	client := fofa.NewClient(acc.Email, acc.Key, opts...)
-
-	ctx := a.ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	a.statsMu.Lock()
 	defer a.statsMu.Unlock()

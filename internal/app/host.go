@@ -39,6 +39,10 @@ func (a *App) QueryHost(req model.HostReq) (model.HostResult, error) {
 		return model.HostResult{}, fmt.Errorf("读取配置失败: %w", err)
 	}
 
+	if isMCPMode(cfg) {
+		return model.HostResult{}, fmt.Errorf("当前 API 地址为 MCP 接口，暂不支持主机画像（host 详情接口仅官方 REST 提供）")
+	}
+
 	opts := []fofa.Option{fofa.WithRetryCount(3)}
 	if strings.TrimSpace(cfg.BaseURL) != "" {
 		opts = append(opts, fofa.WithBaseURL(cfg.BaseURL))

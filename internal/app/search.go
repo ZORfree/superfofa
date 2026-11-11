@@ -48,6 +48,16 @@ func (a *App) SearchFofa(req model.SearchFofaReq) (model.SearchFofaResult, error
 	if err != nil {
 		return model.SearchFofaResult{}, fmt.Errorf("读取配置失败: %w", err)
 	}
+	ctx := a.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// MCP 第三方平台（如 https://host/mcp）走 JSON-RPC，协议与官方 REST 不同
+	if isMCPMode(cfg) {
+		return a.searchFofaMCP(ctx, cfg, acc, query, splitFieldList(fields), page, size)
+	}
+
 	opts := []fofa.Option{fofa.WithRetryCount(3)}
 	if strings.TrimSpace(cfg.BaseURL) != "" {
 		opts = append(opts, fofa.WithBaseURL(cfg.BaseURL))
@@ -56,11 +66,6 @@ func (a *App) SearchFofa(req model.SearchFofaReq) (model.SearchFofaResult, error
 		opts = append(opts, fofa.WithProxy(cfg.Proxy))
 	}
 	client := fofa.NewClient(acc.Email, acc.Key, opts...)
-
-	ctx := a.ctx
-	if ctx == nil {
-		ctx = context.Background()
-	}
 
 	start := time.Now()
 	resp, err := client.Search(&fofa.SearchRequest{

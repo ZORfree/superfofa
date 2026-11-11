@@ -174,8 +174,15 @@ func (a *App) searchExportPage(ctx context.Context, task model.ExportTask, item 
 	if err != nil {
 		return exportSearchPageResult{}, fmt.Errorf("读取配置失败: %w", err)
 	}
+	if isMCPMode(cfg) {
+		fields := make([]string, 0, len(task.Fields))
+		for _, field := range task.Fields {
+			fields = append(fields, field.FofaField)
+		}
+		return a.exportPageMCP(ctx, cfg, acc, item.NormalizedQuery, fields, page, pageSize)
+	}
 	opts := []fofa.Option{fofa.WithRetryCount(3)}
-	if strings.TrimSpace(cfg.BaseURL) != "" {	
+	if strings.TrimSpace(cfg.BaseURL) != "" {
 		opts = append(opts, fofa.WithBaseURL(cfg.BaseURL))
 	}
 	if strings.TrimSpace(cfg.Proxy) != "" {

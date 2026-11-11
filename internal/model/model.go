@@ -320,6 +320,7 @@ type HostResult struct {
 type KeyConfig struct {
 	Mode         KeyMode  `json:"mode"`           // 使用模式：sequence | single | multi
 	BaseURL      string   `json:"base_url"`       // FOFA API 地址，空串=默认 https://fofa.info
+	APIMode      string   `json:"api_mode"`       // 接口协议：auto（默认，按 URL 判定）| rest（官方 REST）| mcp（MCP 第三方平台）
 	Proxy        string   `json:"proxy"`          // 代理地址，如 http://127.0.0.1:7890 或 socks5://...
 	ActiveID     string   `json:"active_id"`      // sequence 模式：当前指针，记录上次用到哪个账号
 	SingleID     string   `json:"single_id"`      // single 模式：固定使用的账号ID

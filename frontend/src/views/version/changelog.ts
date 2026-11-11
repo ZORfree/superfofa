@@ -7,6 +7,27 @@ export type VersionEntry = {
 }
 
 export const CHANGELOG: VersionEntry[] = [
+  // 2.1 第三方 MCP 平台接入
+  {
+    version: "v2.1",
+    date: "2026-11-11",
+    markdown: `
+### 新增
+
+- **MCP 平台接入**：系统配置新增「接口协议」（自动识别 / 官方 REST / MCP 平台），可直接对接第三方 FOFA 兼容平台（如 \`https://host/mcp\`）；地址以 \`/mcp\` 结尾时自动走 MCP，无需手动切换
+- **MCP 能力覆盖**：查询、分页导出、聚合统计、账号检测（额度查询，不消耗次数）均已支持 MCP；主机画像暂仅官方 REST 提供，MCP 模式下会给出明确提示
+
+### 优化
+
+- **Token 校验放开**：FOFA 用户 Token 不再强制三段式 JWT 校验，第三方平台 Key（如 \`fofa_mcp_…\`）可原样保存并作为 Bearer Token 使用，避免"Token 格式不正确"误拦
+- MCP 模式下列表格按平台返回自动建列，兼容数组行与对象行两种结果格式
+
+### 说明
+
+- MCP Token 添加为账号（邮箱可留空），同样支持顺序 / 单 key / 多 key 三种使用模式
+`,
+  },
+
   // 2.0 卡片视图 / 聚合面板 / 代码开源
   {
     version: "v2.0",

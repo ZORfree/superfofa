@@ -15,6 +15,20 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { saveKeyConfig, type KeyConfig } from "./use-config-data"
 import { model } from "../../../wailsjs/go/models"
 
+const API_MODE_OPTIONS: { value: string; label: string; hint: string }[] = [
+  {
+    value: "auto",
+    label: "自动识别",
+    hint: "地址以 /mcp 结尾走 MCP 协议，否则走官方 REST（推荐）",
+  },
+  { value: "rest", label: "官方 REST", hint: "强制使用 fofa.info 官方 REST 接口" },
+  {
+    value: "mcp",
+    label: "MCP 平台",
+    hint: "第三方 MCP 平台（JSON-RPC + Bearer Token），地址未带 /mcp 会自动补齐",
+  },
+]
+
 const MODE_OPTIONS: { value: string; label: string; desc: string }[] = [
   { value: "sequence", label: "顺序轮询", desc: "按存储顺序依次使用有效账号" },
   { value: "single", label: "单 key 运行", desc: "固定使用选定的一个账号" },
@@ -31,19 +45,21 @@ export function SystemConfig({
   validAccounts: model.FofaAccount[]
 }) {
   const [baseUrl, setBaseUrl] = useState(config.base_url)
+  const [apiMode, setApiMode] = useState(config.api_mode || "auto")
   const [proxy, setProxy] = useState(config.proxy)
   const [saving, setSaving] = useState(false)
   const [modeBusy, setModeBusy] = useState(false)
 
   useEffect(() => {
     setBaseUrl(config.base_url)
+    setApiMode(config.api_mode || "auto")
     setProxy(config.proxy)
-  }, [config.base_url, config.proxy])
+  }, [config.base_url, config.api_mode, config.proxy])
 
   const handleSaveNetwork = async () => {
     setSaving(true)
     try {
-      const next = { ...config, base_url: baseUrl.trim(), proxy: proxy.trim() }
+      const next = { ...config, base_url: baseUrl.trim(), api_mode: apiMode, proxy: proxy.trim() }
       const saved = await saveKeyConfig(next)
       setConfig(saved)
       toast.success("API 地址 / 代理已保存")
@@ -100,6 +116,24 @@ export function SystemConfig({
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cfg-apimode">接口协议</Label>
+            <Select value={apiMode} onValueChange={setApiMode}>
+              <SelectTrigger id="cfg-apimode" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper" align="start" sideOffset={4}>
+                {API_MODE_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {API_MODE_OPTIONS.find((o) => o.value === apiMode)?.hint}
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cfg-proxy">代理地址</Label>

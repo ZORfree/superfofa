@@ -70,7 +70,7 @@ function errorDescription(error: unknown, sensitiveValues: string[] = []): strin
   return message
 }
 
-function tokenStatus(configured: boolean, expiry: TokenExpiry | null): TokenStatus {
+function tokenStatus(configured: boolean, expiry: TokenExpiry | null, jwtLike: boolean): TokenStatus {
   if (!configured) {
     return {
       label: "未配置",
@@ -92,6 +92,14 @@ function tokenStatus(configured: boolean, expiry: TokenExpiry | null): TokenStat
       label: "已配置",
       variant: "secondary",
       help: `预计过期：${expiry.text}`,
+    }
+  }
+
+  if (!jwtLike) {
+    return {
+      label: "已配置（非 JWT）",
+      variant: "secondary",
+      help: "非 JWT 格式，已按原样保存，请求时作为 Authorization: Bearer 发送（适用于 MCP / 第三方平台 Key）。",
     }
   }
 
@@ -127,22 +135,22 @@ export function FofaWebTokenConfig({
   const configured = Boolean(configuredToken)
   const trimmed = token.trim()
   const expiry = useMemo(() => tokenExpiry(configuredToken), [configuredToken])
-  const status = useMemo(() => tokenStatus(configured, expiry), [configured, expiry])
+  const jwtLike = useMemo(() => isJwtLike(configuredToken), [configuredToken])
+  const status = useMemo(() => tokenStatus(configured, expiry, jwtLike), [configured, expiry, jwtLike])
   const changed = trimmed !== configuredToken
 
   const handleSave = async () => {
-    if (!isJwtLike(trimmed)) {
-      toast.error("Token 格式不正确", { description: "请粘贴 fofa_token 的完整 JWT 值" })
-      return
-    }
-
+    // 只做空值处理：JWT 是官方 fofa_token 的形态，但第三方 MCP / 代理平台的
+    // Key（如 fofa_mcp_xxx）不是 JWT，这里不再做格式硬校验，避免误拦。
     setSaving(true)
     try {
       const saved = await setFofaWebToken(trimmed)
       setConfig(saved)
       setToken(saved.fofa_web_token || "")
       lastSyncedConfiguredTokenRef.current = saved.fofa_web_token || ""
-      toast.success(trimmed ? "FOFA 用户 Token 已保存" : "FOFA 用户 Token 已清空")
+      toast.success(trimmed ? "Token 已保存" : "Token 已清空", {
+        description: trimmed && !isJwtLike(trimmed) ? "非 JWT 格式，将按 Bearer Token 原样使用" : undefined,
+      })
     } catch (e) {
       toast.error("保存失败", { description: errorDescription(e, [trimmed, configuredToken]) })
     } finally {
@@ -203,6 +211,10 @@ export function FofaWebTokenConfig({
       </div>
 
       <p className="text-xs text-muted-foreground">{status.help}</p>
+
+      <p className="text-xs text-muted-foreground">
+        支持两种值：官方 fofa_token（JWT 三段式）或第三方平台 Key（如 fofa_mcp_…），均原样保存。
+      </p>
 
       <ol className="list-decimal space-y-1 pl-4 text-xs text-muted-foreground">
         <li>在浏览器登录 fofa.info。</li>

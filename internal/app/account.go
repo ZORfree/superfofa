@@ -128,6 +128,7 @@ func (a *App) DeleteFofaAccount(id string) error {
 			if err := a.store.SetKeyConfig(model.KeyConfig{
 				Mode:         cfg.Mode,
 				BaseURL:      cfg.BaseURL,
+				APIMode:      cfg.APIMode,
 				Proxy:        cfg.Proxy,
 				ActiveID:     cfg.ActiveID,
 				SingleID:     cfg.SingleID,
@@ -177,6 +178,10 @@ func (a *App) probeFofa(email, key string) (status, errMsg string, snap *model.A
 	if err != nil {
 		return model.StatusError, "读取配置失败: " + err.Error(), nil
 	}
+	if isMCPMode(cfg) {
+		return a.probeFofaMCP(cfg, key)
+	}
+
 	opts := []fofa.Option{fofa.WithRetryCount(3)}
 	if strings.TrimSpace(cfg.BaseURL) != "" {
 		opts = append(opts, fofa.WithBaseURL(cfg.BaseURL))

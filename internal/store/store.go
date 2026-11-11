@@ -76,6 +76,7 @@ func (s *Store) init() error {
 	defaults := map[string]string{
 		"mode":           string(model.KeyModeSequence),
 		"base_url":       "https://fofa.info",
+		"api_mode":       "auto",
 		"proxy":          "",
 		"active_id":      "",
 		"single_id":      "",
@@ -241,6 +242,10 @@ func (s *Store) GetKeyConfig() (model.KeyConfig, error) {
 		cfg.Mode = model.KeyModeSequence
 	}
 	cfg.BaseURL = kv["base_url"]
+	cfg.APIMode = kv["api_mode"]
+	if cfg.APIMode == "" {
+		cfg.APIMode = "auto"
+	}
 	cfg.Proxy = kv["proxy"]
 	cfg.ActiveID = kv["active_id"]
 	cfg.SingleID = kv["single_id"]
@@ -260,9 +265,14 @@ func (s *Store) SetKeyConfig(cfg model.KeyConfig) error {
 	if err != nil {
 		poolJSON = []byte("[]")
 	}
+	apiMode := cfg.APIMode
+	if apiMode == "" {
+		apiMode = "auto"
+	}
 	kv := map[string]string{
 		"mode":      string(cfg.Mode),
 		"base_url":  cfg.BaseURL,
+		"api_mode":  apiMode,
 		"proxy":     cfg.Proxy,
 		"active_id": cfg.ActiveID,
 		"single_id": cfg.SingleID,
