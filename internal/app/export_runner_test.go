@@ -26,6 +26,7 @@ func TestMarkTaskPausedUpdatesReasonAndMessage(t *testing.T) {
 func TestContinueExportTaskMovesPausedTaskBackToPending(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportTaskDir = tmp
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
 	task := model.ExportTask{ID: "task-1", Status: model.ExportTaskPaused}
@@ -44,6 +45,7 @@ func TestContinueExportTaskMovesPausedTaskBackToPending(t *testing.T) {
 func TestRunExportTaskCompletesAndWritesOutput(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
 	a.exportOutputDir = filepath.Join(tmp, "output")
@@ -105,6 +107,7 @@ func TestRunExportTaskCompletesAndWritesOutput(t *testing.T) {
 func TestRunExportTaskPausesOnSearchError(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
 	a.exportOutputDir = filepath.Join(tmp, "output")
@@ -166,6 +169,7 @@ func TestRunExportTaskLogsLifecycle(t *testing.T) {
 		}
 	}()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
 	a.exportOutputDir = filepath.Join(tmp, "output")

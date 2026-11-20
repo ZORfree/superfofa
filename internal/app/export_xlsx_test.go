@@ -13,6 +13,7 @@ import (
 func TestWriteExportXlsxCreatesFile(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportOutputDir = tmp
 
 	task := model.ExportTask{
@@ -51,6 +52,7 @@ func TestWriteExportXlsxCreatesFile(t *testing.T) {
 func TestWriteExportXlsxUsesFieldSpecificTitlesForCompositeColumns(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportOutputDir = tmp
 
 	task := model.ExportTask{
@@ -105,6 +107,7 @@ func TestWriteExportXlsxUsesFieldSpecificTitlesForCompositeColumns(t *testing.T)
 func TestWriteExportXlsxCreatesUniqueFileWhenNameExists(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportOutputDir = tmp
 
 	existingPath := filepath.Join(tmp, "query-export-20260702-110405.xlsx")

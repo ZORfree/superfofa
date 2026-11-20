@@ -20,12 +20,14 @@ func newHostHistoryTestApp(t *testing.T) *App {
 		}
 	})
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.store = s
 	return a
 }
 
 func TestHostHistoryAppRequiresStore(t *testing.T) {
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	if _, err := a.ListHostHistory(); err == nil || !strings.Contains(err.Error(), "数据库未初始化") {
 		t.Fatalf("ListHostHistory err = %v, want database init error", err)
 	}

@@ -16,6 +16,7 @@ func newTokenTestApp(t *testing.T) *App {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.store = s
 	return a
 }

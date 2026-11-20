@@ -11,6 +11,7 @@ import (
 
 func TestAppHasExportDirectories(t *testing.T) {
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	if a.exportDataDir != "" || a.exportOutputDir != "" {
 		t.Fatalf("new app should not prefill export dirs")
 	}
@@ -19,6 +20,7 @@ func TestAppHasExportDirectories(t *testing.T) {
 func TestSaveAndLoadExportTask(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportTaskDir = tmp
 	task := model.ExportTask{ID: "task-1", Name: "demo", Status: model.ExportTaskPending}
 	if err := a.saveExportTask(task); err != nil {
@@ -36,9 +38,9 @@ func TestSaveAndLoadExportTask(t *testing.T) {
 func TestCreateExportTaskStoresTask(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
-	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	for _, dir := range []string{a.exportTaskDir, a.exportCacheDir} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			t.Fatal(err)
@@ -111,9 +113,9 @@ func TestCreateExportTaskStoresTask(t *testing.T) {
 func TestCreateExportTaskShouldStartExecution(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
-	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportOutputDir = filepath.Join(tmp, "output")
 	for _, dir := range []string{a.exportTaskDir, a.exportCacheDir, a.exportOutputDir} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -147,9 +149,9 @@ func TestCreateExportTaskShouldStartExecution(t *testing.T) {
 func TestDeleteExportTaskRemovesCheckpointOnly(t *testing.T) {
 	tmp := t.TempDir()
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportTaskDir = filepath.Join(tmp, "tasks")
 	a.exportCacheDir = filepath.Join(tmp, "checkpoints")
-	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	a.exportOutputDir = filepath.Join(tmp, "output")
 	for _, dir := range []string{a.exportTaskDir, a.exportCacheDir, a.exportOutputDir} {
 		if err := os.MkdirAll(dir, 0o700); err != nil {

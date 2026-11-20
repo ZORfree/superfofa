@@ -78,6 +78,7 @@ func TestEnsureSlicesNilSafe(t *testing.T) {
 
 func TestQueryHostValidatesIPv4BeforeStore(t *testing.T) {
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	// 输入校验在 store 检查之前：空 host / 非法 host 直接报输入错误
 	if _, err := a.QueryHost(model.HostReq{Host: ""}); err == nil || !strings.Contains(err.Error(), "IPv4") {
 		t.Fatalf("empty host err = %v", err)

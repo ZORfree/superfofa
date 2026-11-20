@@ -16,6 +16,7 @@ func TestExportModelDefaultsCompile(t *testing.T) {
 
 func TestPrecheckTextDomainDedupesAndCollectsInvalids(t *testing.T) {
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	result, err := a.precheckExport(model.ExportPrecheckReq{
 		Source:    model.ExportSourceText,
 		InputType: model.ExportInputDomain,
@@ -40,6 +41,7 @@ func TestPrecheckTextDomainDedupesAndCollectsInvalids(t *testing.T) {
 
 func TestPrecheckQuerySourceKeepsSingleSyntaxItem(t *testing.T) {
 	a := NewApp()
+	t.Cleanup(func() { waitExportRunsIdle(t, a) })
 	result, err := a.precheckExport(model.ExportPrecheckReq{
 		Source:    model.ExportSourceQuery,
 		InputType: model.ExportInputSyntax,
