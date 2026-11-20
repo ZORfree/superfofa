@@ -77,6 +77,7 @@ func (s *Store) init() error {
 		"mode":           string(model.KeyModeSequence),
 		"base_url":       "https://fofa.info",
 		"api_mode":       "auto",
+		"mcp_key":        "",
 		"proxy":          "",
 		"active_id":      "",
 		"single_id":      "",
@@ -246,6 +247,7 @@ func (s *Store) GetKeyConfig() (model.KeyConfig, error) {
 	if cfg.APIMode == "" {
 		cfg.APIMode = "auto"
 	}
+	cfg.MCPKey = kv["mcp_key"]
 	cfg.Proxy = kv["proxy"]
 	cfg.ActiveID = kv["active_id"]
 	cfg.SingleID = kv["single_id"]
@@ -273,6 +275,7 @@ func (s *Store) SetKeyConfig(cfg model.KeyConfig) error {
 		"mode":      string(cfg.Mode),
 		"base_url":  cfg.BaseURL,
 		"api_mode":  apiMode,
+		"mcp_key":   cfg.MCPKey,
 		"proxy":     cfg.Proxy,
 		"active_id": cfg.ActiveID,
 		"single_id": cfg.SingleID,

@@ -119,6 +119,7 @@ func isMCPAuthError(err error) bool {
 type mcpClient struct {
 	endpoint string
 	token    string
+	mcpKey   string // 平台网关 Key，作为 X-MCP-Key 请求头；部分平台（如带 Cloudflare 防护的）必填
 	http     *http.Client
 }
 
@@ -132,6 +133,7 @@ func newMCPClient(cfg model.KeyConfig, endpoint, token string) *mcpClient {
 	return &mcpClient{
 		endpoint: endpoint,
 		token:    strings.TrimSpace(token),
+		mcpKey:   strings.TrimSpace(cfg.MCPKey),
 		http:     &http.Client{Timeout: 90 * time.Second, Transport: transport},
 	}
 }
@@ -221,6 +223,9 @@ func (c *mcpClient) doOnce(ctx context.Context, payload []byte) ([]byte, error) 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json, text/event-stream")
 	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.mcpKey != "" {
+		req.Header.Set("X-MCP-Key", c.mcpKey)
+	}
 	req.Header.Set("User-Agent", "superfofa-mcp/1.0")
 
 	resp, err := c.http.Do(req)
@@ -232,6 +237,14 @@ func (c *mcpClient) doOnce(ctx context.Context, payload []byte) ([]byte, error) 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
 	if err != nil {
 		return nil, fmt.Errorf("读取 MCP 响应失败: %w", err)
+	}
+	if looksLikeHTML(resp.Header.Get("Content-Type"), body) {
+		// Cloudflare / WAF 拦截时返回的是网页而不是 JSON，直接解析只会得到天书
+		return nil, &mcpBlockedError{
+			HTTPStatus: resp.StatusCode,
+			Title:      htmlTitle(body),
+			HasMCPKey:  c.mcpKey != "",
+		}
 	}
 	if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 		return nil, &mcpAPIError{Code: "AUTH_FAILED", Message: mcpAuthMessage(body)}
@@ -273,6 +286,55 @@ func (c *mcpClient) doOnce(ctx context.Context, payload []byte) ([]byte, error) 
 		return []byte("{}"), nil
 	}
 	return []byte(text), nil
+}
+
+// mcpBlockedError 平台前置防护（Cloudflare / WAF）拦截了请求，返回的是网页。
+// 这种情况几乎都是请求头不完整（典型：缺少 X-MCP-Key），所以单独给可执行的提示。
+type mcpBlockedError struct {
+	HTTPStatus int
+	Title      string
+	HasMCPKey  bool
+}
+
+func (e *mcpBlockedError) Error() string {
+	hint := "请到「系统配置 → MCP Key」补填平台网关 Key（请求头 X-MCP-Key）后重试"
+	if e.HasMCPKey {
+		hint = "已发送 X-MCP-Key，请确认该 Key 与当前 Token 属于同平台账号且未过期"
+	}
+	title := strings.TrimSpace(e.Title)
+	if title == "" {
+		title = "平台前置防护拦截"
+	}
+	return fmt.Sprintf("MCP 平台返回网页而非数据（HTTP %d，%s）——%s", e.HTTPStatus, title, hint)
+}
+
+func looksLikeHTML(contentType string, body []byte) bool {
+	if strings.Contains(strings.ToLower(contentType), "text/html") {
+		return true
+	}
+	head := bytes.TrimSpace(body)
+	if len(head) > 512 {
+		head = head[:512]
+	}
+	lower := bytes.ToLower(head)
+	return bytes.HasPrefix(lower, []byte("<!doctype html")) ||
+		bytes.HasPrefix(lower, []byte("<html")) ||
+		bytes.Contains(lower, []byte("<title>attention required"))
+}
+
+// htmlTitle 抠出 <title> 文本，用于错误提示。
+func htmlTitle(body []byte) string {
+	lower := bytes.ToLower(body)
+	start := bytes.Index(lower, []byte("<title>"))
+	if start < 0 {
+		return ""
+	}
+	start += len("<title>")
+	end := bytes.Index(lower[start:], []byte("</title>"))
+	if end < 0 {
+		return ""
+	}
+	return strings.TrimSpace(string(body[start : start+end]))
 }
 
 // mcpAuthMessage 从 401 响应体里抠出可读信息。
@@ -395,8 +457,10 @@ type mcpSearchPayload struct {
 	Total   int               `json:"total"`
 	Size    int               `json:"size"`
 	Page    int               `json:"page"`
-	Fields  []string          `json:"fields"`
-	Results []json.RawMessage `json:"results"`
+	Fields  []string          `json:"fields"`  // 官方 REST 风格
+	Columns []string          `json:"columns"` // MCP 平台风格
+	Results []json.RawMessage `json:"results"` // 官方 REST 风格：二维数组
+	Rows    []json.RawMessage `json:"rows"`    // MCP 平台风格：对象数组
 	Data    *mcpSearchPayload `json:"data"`
 }
 
@@ -431,13 +495,21 @@ func parseMCPSearchPayload(raw []byte) (mcpSearchResult, error) {
 	if err := json.Unmarshal(raw, &p); err != nil {
 		return mcpSearchResult{}, fmt.Errorf("解析 MCP 查询结果失败: %w（原始响应：%s）", err, truncateForError(string(raw)))
 	}
-	if p.Data != nil && p.Total == 0 && len(p.Results) == 0 {
+	if p.Data != nil && p.Total == 0 && len(p.Results) == 0 && len(p.Rows) == 0 {
 		p = *p.Data
 	}
 
 	fieldNames := append([]string(nil), p.Fields...)
-	rows := make([]map[string]string, 0, len(p.Results))
-	for _, item := range p.Results {
+	if len(fieldNames) == 0 {
+		fieldNames = append([]string(nil), p.Columns...)
+	}
+	// 两种平台风格：results（二维数组）与 rows（对象数组）
+	items := p.Results
+	if len(items) == 0 {
+		items = p.Rows
+	}
+	rows := make([]map[string]string, 0, len(items))
+	for _, item := range items {
 		trimmed := bytes.TrimSpace(item)
 		if len(trimmed) == 0 {
 			continue
@@ -457,20 +529,29 @@ func parseMCPSearchPayload(raw []byte) (mcpSearchResult, error) {
 				}
 			}
 			rows = append(rows, row)
-		case '{': // 对象行：字段名直接来自 key
+		case '{': // 对象行：字段名来自 key，顺序优先用 columns
 			var obj map[string]any
 			if err := json.Unmarshal(trimmed, &obj); err != nil {
 				continue
 			}
 			row := make(map[string]string, len(obj))
-			keys := make([]string, 0, len(obj))
 			for k, v := range obj {
 				row[k] = jsonValueToString(v)
-				keys = append(keys, k)
 			}
 			if len(fieldNames) == 0 {
+				keys := make([]string, 0, len(obj))
+				for k := range obj {
+					keys = append(keys, k)
+				}
 				sort.Strings(keys)
 				fieldNames = keys
+			} else {
+				// columns 里有但本行缺的字段补空值，保证表格列对齐
+				for _, name := range fieldNames {
+					if _, ok := row[name]; !ok {
+						row[name] = ""
+					}
+				}
 			}
 			rows = append(rows, row)
 		}
@@ -483,8 +564,8 @@ func parseMCPSearchPayload(raw []byte) (mcpSearchResult, error) {
 	}
 
 	total := p.Total
-	if total == 0 {
-		total = p.Size
+	if total == 0 && len(rows) > 0 {
+		total = len(rows)
 	}
 	return mcpSearchResult{Total: total, Page: p.Page, Fields: fieldNames, Rows: rows}, nil
 }
@@ -492,8 +573,9 @@ func parseMCPSearchPayload(raw []byte) (mcpSearchResult, error) {
 // ===================== fofa_stats =====================
 
 type mcpStatsResult struct {
-	Total int64
-	Items []model.StatsAggItem
+	Total    int64
+	Distinct int64
+	Items    []model.StatsAggItem
 }
 
 // Stats 调 fofa_stats 工具，返回某字段的 TopN 分布。
@@ -517,6 +599,15 @@ func parseMCPStatsPayload(raw []byte, size int) (mcpStatsResult, error) {
 		return mcpStatsResult{}, fmt.Errorf("解析 MCP 统计结果失败: %w（原始响应：%s）", err, truncateForError(string(raw)))
 	}
 	out := mcpStatsResult{Total: int64(readJSONInt(root, "total", "size", "count"))}
+	if raw, ok := root["distinct"]; ok {
+		var distinct map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &distinct); err == nil {
+			// 平台给的是 {"ip": 1, "ipc": 0}，取 ip 作为去重数
+			out.Distinct = int64(readJSONInt(distinct, "ip", "count", "total"))
+		} else {
+			out.Distinct = int64(readJSONInt(root, "distinct"))
+		}
+	}
 	for _, key := range []string{"items", "aggs", "results", "distribution", "list", "data"} {
 		node, ok := root[key]
 		if !ok {

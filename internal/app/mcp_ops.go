@@ -20,6 +20,9 @@ func translateMCPError(err error) error {
 	if apiErr, ok := err.(*mcpAPIError); ok {
 		return fmt.Errorf("%s", apiErr.Error())
 	}
+	if blocked, ok := err.(*mcpBlockedError); ok {
+		return fmt.Errorf("%s", blocked.Error())
+	}
 	return fmt.Errorf("连接 MCP 平台失败，请检查 API 地址/代理后重试：%s", err.Error())
 }
 
@@ -105,7 +108,10 @@ func (a *App) statsFofaMCP(ctx context.Context, cfg model.KeyConfig, acc model.F
 		}
 		aggs[field] = res.Items
 		returned[field] = len(res.Items)
-		distinct[field] = int64(len(res.Items))
+		distinct[field] = res.Distinct
+		if distinct[field] == 0 {
+			distinct[field] = int64(len(res.Items))
+		}
 		if res.Total > total {
 			total = res.Total
 		}

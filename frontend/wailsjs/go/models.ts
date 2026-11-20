@@ -670,6 +670,7 @@ export namespace model {
 	    mode: string;
 	    base_url: string;
 	    api_mode: string;
+	    mcp_key: string;
 	    proxy: string;
 	    active_id: string;
 	    single_id: string;
@@ -685,6 +686,7 @@ export namespace model {
 	        this.mode = source["mode"];
 	        this.base_url = source["base_url"];
 	        this.api_mode = source["api_mode"];
+	        this.mcp_key = source["mcp_key"];
 	        this.proxy = source["proxy"];
 	        this.active_id = source["active_id"];
 	        this.single_id = source["single_id"];

@@ -7,6 +7,23 @@ export type VersionEntry = {
 }
 
 export const CHANGELOG: VersionEntry[] = [
+  // 2.2 平台双请求头鉴权 + 真实返回体适配
+  {
+    version: "v2.2",
+    date: "2026-11-11",
+    markdown: `
+### 修复
+
+- **适配平台双请求头鉴权**：部分 MCP 平台除 \`Authorization: Bearer\` 外还要求 \`X-MCP-Key\`，系统配置新增「MCP Key」输入项；未填时该请求头不发送，兼容只认 Bearer 的平台
+- **修正 MCP 查询结果解析**：按平台实际返回的 \`columns\` + \`rows\`（对象数组）建表，此前只认官方 REST 的 \`fields\` + \`results\`，会出现「命中数正常但列表为空」
+- **统计去重数**：改为取平台返回的 \`distinct\` 值，不再用 TopN 条数冒充
+
+### 优化
+
+- 平台前置防护（Cloudflare / WAF）返回网页时，提示会明确指出「请补填 MCP Key」，不再显示 "解析响应失败"
+`,
+  },
+
   // 2.1 第三方 MCP 平台接入
   {
     version: "v2.1",

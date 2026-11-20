@@ -46,6 +46,7 @@ export function SystemConfig({
 }) {
   const [baseUrl, setBaseUrl] = useState(config.base_url)
   const [apiMode, setApiMode] = useState(config.api_mode || "auto")
+  const [mcpKey, setMcpKey] = useState(config.mcp_key || "")
   const [proxy, setProxy] = useState(config.proxy)
   const [saving, setSaving] = useState(false)
   const [modeBusy, setModeBusy] = useState(false)
@@ -53,13 +54,20 @@ export function SystemConfig({
   useEffect(() => {
     setBaseUrl(config.base_url)
     setApiMode(config.api_mode || "auto")
+    setMcpKey(config.mcp_key || "")
     setProxy(config.proxy)
-  }, [config.base_url, config.api_mode, config.proxy])
+  }, [config.base_url, config.api_mode, config.mcp_key, config.proxy])
 
   const handleSaveNetwork = async () => {
     setSaving(true)
     try {
-      const next = { ...config, base_url: baseUrl.trim(), api_mode: apiMode, proxy: proxy.trim() }
+      const next = {
+        ...config,
+        base_url: baseUrl.trim(),
+        api_mode: apiMode,
+        mcp_key: mcpKey.trim(),
+        proxy: proxy.trim(),
+      }
       const saved = await saveKeyConfig(next)
       setConfig(saved)
       toast.success("API 地址 / 代理已保存")
@@ -135,6 +143,21 @@ export function SystemConfig({
               {API_MODE_OPTIONS.find((o) => o.value === apiMode)?.hint}
             </p>
           </div>
+          {apiMode !== "rest" && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cfg-mcpkey">MCP Key</Label>
+              <Input
+                id="cfg-mcpkey"
+                placeholder="mcp_xxx（平台网关 Key，选填）"
+                value={mcpKey}
+                onChange={(e) => setMcpKey(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                作为请求头 X-MCP-Key 发送。带 Cloudflare 防护的平台必须填，否则请求会被拦截；
+                官方 REST 用不到，留空即可。
+              </p>
+            </div>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="cfg-proxy">代理地址</Label>
             <Input
